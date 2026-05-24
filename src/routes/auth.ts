@@ -42,7 +42,7 @@ router.post("/register", async (req, res, next) => {
       },
     });
 
-    const token = jwt.sign({ userId: user.id }, JWT_SECRET, {
+    const token = jwt.sign({ userId: user.id, role: user.role }, JWT_SECRET, {
       expiresIn: "7d",
     });
 
@@ -52,11 +52,12 @@ router.post("/register", async (req, res, next) => {
         id: user.id,
         fullName: user.fullName,
         email: user.email,
+        role: user.role,
       },
     });
   } catch (err) {
     if (err instanceof z.ZodError) {
-      res.status(400).json({ error: err.errors[0].message });
+      res.status(400).json({ error: err.issues[0].message });
       return;
     }
     next(err);
@@ -81,7 +82,7 @@ router.post("/login", async (req, res, next) => {
       throw new AppError(401, "Email ou senha inválidos");
     }
 
-    const token = jwt.sign({ userId: user.id }, JWT_SECRET, {
+    const token = jwt.sign({ userId: user.id, role: user.role }, JWT_SECRET, {
       expiresIn: "7d",
     });
 
@@ -91,11 +92,12 @@ router.post("/login", async (req, res, next) => {
         id: user.id,
         fullName: user.fullName,
         email: user.email,
+        role: user.role,
       },
     });
   } catch (err) {
     if (err instanceof z.ZodError) {
-      res.status(400).json({ error: err.errors[0].message });
+      res.status(400).json({ error: err.issues[0].message });
       return;
     }
     next(err);

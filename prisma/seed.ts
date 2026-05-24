@@ -1,4 +1,5 @@
 import { PrismaClient } from "@prisma/client";
+import bcrypt from "bcryptjs";
 
 const prisma = new PrismaClient();
 
@@ -82,6 +83,19 @@ async function main() {
     });
     console.log(`  Car: ${car.name}`);
   }
+
+  const adminPassword = await bcrypt.hash("admin123", 10);
+  await prisma.user.upsert({
+    where: { email: "admin@automatch.com" },
+    update: {},
+    create: {
+      fullName: "Administrador",
+      email: "admin@automatch.com",
+      password: adminPassword,
+      role: "ADMIN",
+    },
+  });
+  console.log("  Admin user: admin@automatch.com");
 
   console.log("Seed complete.");
 }

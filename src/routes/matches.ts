@@ -93,7 +93,7 @@ router.post("/", requireAuth, async (req: AuthRequest, res, next) => {
     res.status(201).json(formatMatch(match));
   } catch (err) {
     if (err instanceof z.ZodError) {
-      res.status(400).json({ error: err.errors[0].message });
+      res.status(400).json({ error: err.issues[0].message });
       return;
     }
     next(err);
@@ -103,7 +103,7 @@ router.post("/", requireAuth, async (req: AuthRequest, res, next) => {
 router.delete("/:id", requireAuth, async (req: AuthRequest, res, next) => {
   try {
     const match = await prisma.savedMatch.findUnique({
-      where: { id: req.params.id },
+      where: { id: String(req.params.id) },
     });
 
     if (!match) {
@@ -115,7 +115,7 @@ router.delete("/:id", requireAuth, async (req: AuthRequest, res, next) => {
     }
 
     await prisma.savedMatch.delete({
-      where: { id: req.params.id },
+      where: { id: String(req.params.id) },
     });
 
     res.status(204).send();

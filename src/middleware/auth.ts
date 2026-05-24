@@ -5,6 +5,7 @@ const JWT_SECRET = process.env.JWT_SECRET || "automatch-dev-secret-change-in-pro
 
 export interface AuthRequest extends Request {
   userId?: string;
+  userRole?: string;
 }
 
 export function requireAuth(
@@ -22,10 +23,25 @@ export function requireAuth(
   const token = header.slice(7);
 
   try {
-    const payload = jwt.verify(token, JWT_SECRET) as { userId: string };
+    const payload = jwt.verify(token, JWT_SECRET) as { userId: string; role: string };
     req.userId = payload.userId;
+    req.userRole = payload.role;
     next();
   } catch {
     res.status(401).json({ error: "Token inválido ou expirado" });
   }
+}
+
+export function requireAdmin(
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+) {
+  requireAuth(req, res, () => {
+    if (req.userRole !== "ADMIN") {
+      res.status(403).json({ error: "Acesso restrito a administradores" });
+      return;
+    }
+    next();
+  });
 }
