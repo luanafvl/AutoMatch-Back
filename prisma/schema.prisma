@@ -1,0 +1,48 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String       @id @default(uuid())
+  fullName  String
+  email     String       @unique
+  password  String
+  createdAt DateTime     @default(now())
+  matches   SavedMatch[]
+}
+
+model Car {
+  id               String       @id
+  name             String
+  year             Int
+  price            Float
+  category         String
+  engine           String
+  power            String
+  consumption      String
+  weight           String
+  ipva             Float
+  insurance        Float
+  maintenance      Float
+  features         String
+  mainImage        String
+  thumbnailImages  String
+  matches          SavedMatch[]
+}
+
+model SavedMatch {
+  id              String   @id @default(uuid())
+  userId          String
+  carId           String
+  matchPercentage Float
+  savedAt         DateTime @default(now())
+  user            User     @relation(fields: [userId], references: [id])
+  car             Car      @relation(fields: [carId], references: [id])
+
+  @@unique([userId, carId])
+}
