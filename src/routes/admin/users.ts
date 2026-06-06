@@ -11,9 +11,11 @@ router.get("/", requireAdmin, async (_req, res, next) => {
     const users = await prisma.user.findMany({
       select: {
         id: true,
-        fullName: true,
+        firstName: true,
+        surname: true,
         email: true,
         role: true,
+        avatarUrl: true,
         createdAt: true,
       },
       orderBy: { createdAt: "desc" },
@@ -49,9 +51,11 @@ router.put("/:id/role", requireAdmin, async (req: AuthRequest, res, next) => {
       data: { role },
       select: {
         id: true,
-        fullName: true,
+        firstName: true,
+        surname: true,
         email: true,
         role: true,
+        avatarUrl: true,
         createdAt: true,
       },
     });

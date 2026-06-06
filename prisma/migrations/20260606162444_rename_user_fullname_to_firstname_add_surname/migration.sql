@@ -1,0 +1,2 @@
+ALTER TABLE "User" RENAME COLUMN "fullName" TO "firstName";
+ALTER TABLE "User" ADD COLUMN "surname" TEXT NOT NULL DEFAULT '';

@@ -4,13 +4,15 @@ import jwt from "jsonwebtoken";
 import { z } from "zod";
 import prisma from "../lib/prisma.js";
 import { AppError } from "../middleware/error.js";
+import { requireAuth, AuthRequest } from "../middleware/auth.js";
 
 const router = Router();
 
 const JWT_SECRET = process.env.JWT_SECRET || "automatch-dev-secret-change-in-production";
 
 const registerSchema = z.object({
-  fullName: z.string().min(2, "Nome deve ter no mínimo 2 caracteres"),
+  firstName: z.string().min(2, "Nome deve ter no mínimo 2 caracteres"),
+  surname: z.string().optional().default(""),
   email: z.string().email("Email inválido"),
   password: z.string().min(6, "Senha deve ter no mínimo 6 caracteres"),
 });
@@ -18,6 +20,17 @@ const registerSchema = z.object({
 const loginSchema = z.object({
   email: z.string().email("Email inválido"),
   password: z.string().min(1, "Senha é obrigatória"),
+});
+
+const updateProfileSchema = z.object({
+  firstName: z.string().min(2, "Nome deve ter no mínimo 2 caracteres"),
+  surname: z.string().optional().default(""),
+  email: z.string().email("Email inválido"),
+  password: z.string().min(6, "Senha deve ter no mínimo 6 caracteres").optional(),
+});
+
+const updateAvatarSchema = z.object({
+  avatarUrl: z.string().min(1, "Imagem inválida"),
 });
 
 router.post("/register", async (req, res, next) => {
@@ -36,9 +49,18 @@ router.post("/register", async (req, res, next) => {
 
     const user = await prisma.user.create({
       data: {
-        fullName: data.fullName,
+        firstName: data.firstName,
+        surname: data.surname,
         email: data.email,
         password: hashedPassword,
+      },
+      select: {
+        id: true,
+        firstName: true,
+        surname: true,
+        email: true,
+        role: true,
+        avatarUrl: true,
       },
     });
 
@@ -50,9 +72,11 @@ router.post("/register", async (req, res, next) => {
       token,
       user: {
         id: user.id,
-        fullName: user.fullName,
+        firstName: user.firstName,
+        surname: user.surname,
         email: user.email,
         role: user.role,
+        avatarUrl: user.avatarUrl,
       },
     });
   } catch (err) {
@@ -70,6 +94,15 @@ router.post("/login", async (req, res, next) => {
 
     const user = await prisma.user.findUnique({
       where: { email: data.email },
+      select: {
+        id: true,
+        firstName: true,
+        surname: true,
+        email: true,
+        password: true,
+        role: true,
+        avatarUrl: true,
+      },
     });
 
     if (!user) {
@@ -90,11 +123,101 @@ router.post("/login", async (req, res, next) => {
       token,
       user: {
         id: user.id,
-        fullName: user.fullName,
+        firstName: user.firstName,
+        surname: user.surname,
         email: user.email,
         role: user.role,
+        avatarUrl: user.avatarUrl,
       },
     });
+  } catch (err) {
+    if (err instanceof z.ZodError) {
+      res.status(400).json({ error: err.issues[0].message });
+      return;
+    }
+    next(err);
+  }
+});
+
+router.put("/me", requireAuth, async (req: AuthRequest, res, next) => {
+  try {
+    const data = updateProfileSchema.parse(req.body);
+
+    if (!req.userId) {
+      throw new AppError(401, "Token inválido ou expirado");
+    }
+
+    const existing = await prisma.user.findFirst({
+      where: {
+        email: data.email,
+        NOT: { id: req.userId },
+      },
+    });
+
+    if (existing) {
+      throw new AppError(409, "Email já cadastrado");
+    }
+
+    const updateData: {
+      firstName: string;
+      surname: string;
+      email: string;
+      password?: string;
+    } = {
+      firstName: data.firstName,
+      surname: data.surname,
+      email: data.email,
+    };
+
+    if (data.password) {
+      updateData.password = await bcrypt.hash(data.password, 10);
+    }
+
+    const user = await prisma.user.update({
+      where: { id: req.userId },
+      data: updateData,
+      select: {
+        id: true,
+        firstName: true,
+        surname: true,
+        email: true,
+        role: true,
+        avatarUrl: true,
+      },
+    });
+
+    res.json({ user });
+  } catch (err) {
+    if (err instanceof z.ZodError) {
+      res.status(400).json({ error: err.issues[0].message });
+      return;
+    }
+    next(err);
+  }
+});
+
+router.put("/me/avatar", requireAuth, async (req: AuthRequest, res, next) => {
+  try {
+    const data = updateAvatarSchema.parse(req.body);
+
+    if (!req.userId) {
+      throw new AppError(401, "Token inválido ou expirado");
+    }
+
+    const user = await prisma.user.update({
+      where: { id: req.userId },
+      data: { avatarUrl: data.avatarUrl },
+      select: {
+        id: true,
+        firstName: true,
+        surname: true,
+        email: true,
+        role: true,
+        avatarUrl: true,
+      },
+    });
+
+    res.json({ user });
   } catch (err) {
     if (err instanceof z.ZodError) {
       res.status(400).json({ error: err.issues[0].message });

@@ -1,3 +1,4 @@
+import "dotenv/config";
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
 
@@ -89,10 +90,12 @@ async function main() {
     where: { email: "admin@automatch.com" },
     update: {},
     create: {
-      fullName: "Administrador",
+      firstName: "Administrador",
+      surname: "",
       email: "admin@automatch.com",
       password: adminPassword,
       role: "ADMIN",
+      avatarUrl: "",
     },
   });
   console.log("  Admin user: admin@automatch.com");
@@ -103,7 +106,7 @@ async function main() {
 main()
   .catch((e) => {
     console.error(e);
-    process.exit(1);
+    throw e;
   })
   .finally(async () => {
     await prisma.$disconnect();

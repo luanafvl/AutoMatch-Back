@@ -115,7 +115,8 @@ Senha: admin123
 | Campo | Tipo | Descrição |
 |-------|------|-----------|
 | id | String (UUID) | Primary key |
-| fullName | String | Nome completo |
+| firstName | String | Primeiro nome |
+| surname | String | Sobrenome |
 | email | String (único) | Email de acesso |
 | password | String | Hash bcrypt |
 | role | String | `USER` ou `ADMIN` |
