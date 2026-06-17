@@ -5,10 +5,34 @@ import { requireAuth, AuthRequest } from "../middleware/auth.js";
 import { AppError } from "../middleware/error.js";
 
 const router = Router();
+console.log("Matches router loaded");
 
 const createMatchSchema = z.object({
   carId: z.string().min(1, "carId é obrigatório"),
   matchPercentage: z.number().min(0).max(100),
+});
+
+const recommendationsSchema = z.object({
+  demographics: z.object({
+    familySize: z.string(),
+    primaryUse: z.string(),
+    primaryEnvironment: z.string(),
+  }),
+  financials: z.object({
+    maxBudget: z.number(),
+    costTolerance: z.string(),
+  }),
+  technicalPreferences: z.object({
+    categories: z.array(z.string()),
+    vehicleAge: z.string(),
+    transmission: z.string(),
+  }),
+  priorities: z.object({
+    economy: z.number(),
+    power: z.number(),
+    comfort: z.number(),
+    safety: z.number(),
+  }),
 });
 
 function formatMatch(row: any) {
@@ -52,6 +76,51 @@ router.get("/", requireAuth, async (req: AuthRequest, res, next) => {
 
     res.json(matches.map(formatMatch));
   } catch (err) {
+    next(err);
+  }
+});
+
+router.post("/recommendations", async (req, res, next) => {
+  try {
+    const userProfile = recommendationsSchema.parse(req.body);
+
+    const cars = await prisma.car.findMany();
+
+    const formattedCars = cars.map(car => ({
+      id: car.id,
+      nome: car.name,
+      preco: car.price,
+      categoria: car.category,
+      specs: {
+        potencia: car.power,
+        consumo: car.consumption
+      }
+    }));
+
+    const aiServiceUrl = process.env.AI_SERVICE_URL || "http://localhost:8000";
+    const response = await fetch(`${aiServiceUrl}/match`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        user_profile: userProfile,
+        available_cars: formattedCars
+      }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ detail: "Erro desconhecido na IA" }));
+      throw new AppError(500, `IA Service Error: ${errorData.detail || response.statusText}`);
+    }
+
+    const aiResults = await response.json();
+    res.json(aiResults);
+  } catch (err) {
+    if (err instanceof z.ZodError) {
+      res.status(400).json({ error: err.issues[0].message });
+      return;
+    }
     next(err);
   }
 });

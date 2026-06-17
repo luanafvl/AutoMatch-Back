@@ -19,6 +19,7 @@ app.use(express_1.default.json({ limit: "10mb" }));
 app.use("/api/cars", cars_js_1.default);
 app.use("/api/auth", auth_js_1.default);
 app.use("/api/matches", matches_js_1.default);
+app.post("/api/test", (req, res) => res.json({ ok: true }));
 app.use("/api/admin/cars", cars_js_2.default);
 app.use("/api/admin/users", users_js_1.default);
 app.use(error_js_1.errorHandler);
