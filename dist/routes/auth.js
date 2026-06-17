@@ -48,6 +48,14 @@ router.post("/register", async (req, res, next) => {
                 email: data.email,
                 password: hashedPassword,
             },
+            select: {
+                id: true,
+                firstName: true,
+                surname: true,
+                email: true,
+                role: true,
+                avatarUrl: true,
+            },
         });
         const token = jsonwebtoken_1.default.sign({ userId: user.id, role: user.role }, JWT_SECRET, {
             expiresIn: "7d",
@@ -77,6 +85,15 @@ router.post("/login", async (req, res, next) => {
         const data = loginSchema.parse(req.body);
         const user = await prisma_js_1.default.user.findUnique({
             where: { email: data.email },
+            select: {
+                id: true,
+                firstName: true,
+                surname: true,
+                email: true,
+                password: true,
+                role: true,
+                avatarUrl: true,
+            },
         });
         if (!user) {
             throw new error_js_1.AppError(401, "Email ou senha inválidos");
