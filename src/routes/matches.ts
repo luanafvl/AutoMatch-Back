@@ -5,7 +5,6 @@ import { requireAuth, AuthRequest } from "../middleware/auth.js";
 import { AppError } from "../middleware/error.js";
 
 const router = Router();
-console.log("Matches router loaded");
 
 const createMatchSchema = z.object({
   carId: z.string().min(1, "carId é obrigatório"),
@@ -80,9 +79,10 @@ router.get("/", requireAuth, async (req: AuthRequest, res, next) => {
   }
 });
 
-router.post("/recommendations", async (req, res, next) => {
+router.post("/recommendations", requireAuth, async (req: AuthRequest, res, next) => {
   try {
     const userProfile = recommendationsSchema.parse(req.body);
+    const userId = req.userId!;
 
     const cars = await prisma.car.findMany();
 
@@ -115,7 +115,44 @@ router.post("/recommendations", async (req, res, next) => {
     }
 
     const aiResults = await response.json();
-    res.json(aiResults);
+    
+    const enrichedMatches = [];
+    
+    // Salvar automaticamente apenas o melhor match no banco de dados para o usuário
+    if (aiResults.matches && aiResults.matches.length > 0) {
+      const topMatches = aiResults.matches.slice(0, 1); // Salva apenas o melhor resultado (maior compatibilidade)
+      
+      for (const aiMatch of topMatches) {
+        try {
+          const matchRecord = await prisma.savedMatch.upsert({
+            where: {
+              userId_carId: {
+                userId: userId,
+                carId: aiMatch.id
+              }
+            },
+            update: {
+              matchPercentage: Math.max(0, Math.round(aiMatch.match_score * 100))
+            },
+            create: {
+              userId: userId,
+              carId: aiMatch.id,
+              matchPercentage: Math.max(0, Math.round(aiMatch.match_score * 100))
+            },
+            include: { car: true }
+          });
+          
+          enrichedMatches.push(formatMatch(matchRecord));
+        } catch (saveErr) {
+          console.error(`Erro ao salvar match automático para o carro ${aiMatch.id}:`, saveErr);
+        }
+      }
+    }
+
+    res.json({
+      status: "success",
+      matches: enrichedMatches
+    });
   } catch (err) {
     if (err instanceof z.ZodError) {
       res.status(400).json({ error: err.issues[0].message });

@@ -1,152 +1,73 @@
-# AutoMatch-Back
+# ⚙️ AutoMatch - Backend (Orchestrator)
 
-API REST do AutoMatch — backend em Node.js + Express + TypeScript + Prisma.
+O **AutoMatch-Back** é o coração do ecossistema, responsável por gerenciar os dados dos veículos, usuários e atuar como o orquestrador entre o Frontend e o Motor de Recomendação (IA).
 
-## Stack
+## 🛠️ Stack Tecnológica
 
 | Camada | Tecnologia |
 |--------|-----------|
-| Runtime | Node.js + TypeScript |
-| Framework | Express |
-| ORM | Prisma 5 |
-| Database | SQLite |
-| Auth | JWT + bcrypt |
-| Validação | Zod |
+| **Runtime** | Node.js (v22+) + TypeScript |
+| **Framework** | Express.js |
+| **ORM** | Prisma 5 |
+| **Database** | SQLite (Local & Fast) |
+| **Auth** | JWT + bcrypt |
+| **IA Bridge** | Fetch API (Native Node.js) |
 
-## Pré-requisitos
+## 🔄 Fluxo de Dados (Orquestração)
 
+O backend possui uma lógica especial para recomendações:
+1. O **Frontend** envia as `UserPreferences`.
+2. O **Backend** busca todos os carros disponíveis no banco de dados.
+3. O **Backend** envia o par `(User + Cars)` para o microsserviço de **Deep Learning** (Python).
+4. O **Motor de IA** retorna os scores de compatibilidade.
+5. O **Backend** ordena os resultados e persiste o melhor match para o usuário.
+6. O **Frontend** recebe a recomendação final processada.
+
+## 🚀 Como Iniciar
+
+### Pré-requisitos
 - Node.js >= 18
 - npm
 
-## Setup
+### Instalação e Setup
+1. Instale as dependências:
+   ```bash
+   npm install
+   ```
+2. Configure o banco de dados (SQLite):
+   ```bash
+   npx prisma migrate dev
+   ```
+3. (Opcional) Popule o banco com dados iniciais:
+   ```bash
+   npm run db:seed
+   ```
+4. Inicie em modo de desenvolvimento:
+   ```bash
+   npm run dev
+   ```
 
-```bash
-# Instalar dependências
-npm install
+## 📡 API Endpoints Principais
 
-# Criar banco e aplicar migrations
-npx prisma migrate dev
+### Recomendações (O Diferencial)
+- `POST /api/matches/recommendations`: Recebe o Quiz e retorna o melhor match via IA.
 
-# Popular com dados iniciais (3 carros + admin)
-npx tsx prisma/seed.ts
+### Autenticação
+- `POST /api/auth/register`: Cadastro de novos usuários.
+- `POST /api/auth/login`: Login e obtenção do token JWT.
+
+### Catálogo
+- `GET /api/cars`: Lista todos os veículos.
+- `GET /api/admin/cars`: Gestão administrativa do catálogo.
+
+## ⚙️ Variáveis de Ambiente
+
+Crie um arquivo `.env` na raiz:
+```env
+DATABASE_URL="file:./dev.db"
+JWT_SECRET="sua_chave_secreta_aqui"
+AI_SERVICE_URL="http://localhost:8000/match"
 ```
 
-## Desenvolvimento
-
-```bash
-npm run dev
-```
-
-O servidor inicia em `http://localhost:3000/api`.
-
-## Scripts
-
-| Comando | Descrição |
-|---------|-----------|
-| `npm run dev` | Inicia com hot-reload (tsx watch) |
-| `npm run build` | Compila TypeScript para `dist/` |
-| `npm start` | Sobe em produção a partir de `dist/` |
-| `npm run db:migrate` | Cria nova migration |
-| `npm run db:seed` | Popula o banco |
-| `npm run db:reset` | Reset completo do banco |
-
-## Estrutura
-
-```
-src/
-├── index.ts                # Entry point
-├── lib/prisma.ts           # PrismaClient singleton
-├── middleware/
-│   ├── auth.ts             # requireAuth + requireAdmin
-│   └── error.ts            # AppError + error handler
-└── routes/
-    ├── auth.ts             # POST /api/auth/register, POST /api/auth/login
-    ├── cars.ts             # GET /api/cars, GET /api/cars/:id
-    ├── matches.ts          # GET/POST/DELETE /api/matches
-    └── admin/
-        ├── cars.ts         # CRUD /api/admin/cars
-        └── users.ts        # GET /api/admin/users, PUT /api/admin/users/:id/role
-prisma/
-├── schema.prisma           # User, Car, SavedMatch
-└── seed.ts                 # Dados iniciais
-```
-
-## Rotas da API
-
-### Públicas
-
-| Método | Rota | Descrição |
-|--------|------|-----------|
-| GET | `/api/cars` | Lista todos os carros |
-| GET | `/api/cars/:id` | Carro por ID |
-| POST | `/api/auth/register` | Cadastro de usuário |
-| POST | `/api/auth/login` | Login (retorna JWT) |
-
-### Autenticadas (requer header `Authorization: Bearer <token>`)
-
-| Método | Rota | Descrição |
-|--------|------|-----------|
-| GET | `/api/matches` | Matches salvos do usuário |
-| POST | `/api/matches` | Salvar um match |
-| DELETE | `/api/matches/:id` | Remover match |
-
-### Admin (requer token de admin)
-
-| Método | Rota | Descrição |
-|--------|------|-----------|
-| GET | `/api/admin/cars` | Listar carros |
-| POST | `/api/admin/cars` | Criar carro |
-| PUT | `/api/admin/cars/:id` | Atualizar carro |
-| DELETE | `/api/admin/cars/:id` | Excluir carro |
-| GET | `/api/admin/users` | Listar usuários |
-| PUT | `/api/admin/users/:id/role` | Alterar role (`USER` ou `ADMIN`) |
-
-## Admin padrão (seed)
-
-```
-Email: admin@automatch.com
-Senha: admin123
-```
-
-## Modelo de dados
-
-### User
-
-| Campo | Tipo | Descrição |
-|-------|------|-----------|
-| id | String (UUID) | Primary key |
-| firstName | String | Primeiro nome |
-| surname | String | Sobrenome |
-| email | String (único) | Email de acesso |
-| password | String | Hash bcrypt |
-| role | String | `USER` ou `ADMIN` |
-| createdAt | DateTime | Data de criação |
-
-### Car
-
-| Campo | Tipo | Descrição |
-|-------|------|-----------|
-| id | String | Identificador amigável (ex: `kwid-iconic-2026`) |
-| name | String | Nome do carro |
-| year | Int | Ano |
-| price | Float | Preço em R$ |
-| category | String | Categoria (Popular, Clássico, etc.) |
-| engine/power/consumption/weight | String | Especificações |
-| ipva/insurance/maintenance | Float | Custos |
-| features | String (JSON) | Array de características |
-| mainImage | String | URL da imagem principal |
-| thumbnailImages | String (JSON) | Array de URLs das thumbnails |
-
-### SavedMatch
-
-| Campo | Tipo | Descrição |
-|-------|------|-----------|
-| id | String (UUID) | Primary key |
-| userId | String | FK para User |
-| carId | String | FK para Car |
-| matchPercentage | Float | % de match |
-| savedAt | DateTime | Data em que foi salvo |
-
-## Frontend
-
-O frontend Angular consome esta API em `http://localhost:3000/api`.
+---
+Desenvolvido como parte do ecossistema **AutoMatch**.
