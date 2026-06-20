@@ -6,7 +6,7 @@ const prisma = new PrismaClient();
 
 const cars = [
   {
-    id: "kwid-iconic-2026",
+    id: "cfdfe69a5bace2cacdcd2b72a6d456d88dc53ae5ae8863aefc09bad03b5444e2",
     name: "Kwid Iconic 1.0",
     year: 2026,
     price: 85190,
@@ -26,55 +26,26 @@ const cars = [
       "https://source.unsplash.com/200x150/?car-dashboard",
       "https://source.unsplash.com/200x150/?car-wheel"
     ])
-  },
-  {
-    id: "opala-ss-1980",
-    name: "Opala SS",
-    year: 1980,
-    price: 128900,
-    category: "Classico",
-    engine: "4.1 6cc",
-    power: "170 cv",
-    consumption: "6 km/l",
-    weight: "1400 kg",
-    ipva: 3867,
-    insurance: 4500,
-    maintenance: 3500,
-    features: JSON.stringify(["Motor 6 cilindros", "Câmbio manual 4 marchas", "Direção hidráulica", "Bancos em couro", "Som original"]),
-    mainImage: "https://source.unsplash.com/400x300/?classic-car",
-    thumbnailImages: JSON.stringify([
-      "https://source.unsplash.com/200x150/?classic-car",
-      "https://source.unsplash.com/200x150/?vintage-car",
-      "https://source.unsplash.com/200x150/?car-engine",
-      "https://source.unsplash.com/200x150/?car-interior-vintage"
-    ])
-  },
-  {
-    id: "dart-swinger-1974",
-    name: "Dart Swinger",
-    year: 1974,
-    price: 175000,
-    category: "Classico",
-    engine: "5.2 V8",
-    power: "240 cv",
-    consumption: "4,5 km/l",
-    weight: "1550 kg",
-    ipva: 5250,
-    insurance: 5800,
-    maintenance: 4200,
-    features: JSON.stringify(["Motor V8", "Câmbio automático 3 marchas", "Direção hidráulica", "Bancos em couro", "Ar-condicionado"]),
-    mainImage: "https://source.unsplash.com/400x300/?vintage-muscle-car",
-    thumbnailImages: JSON.stringify([
-      "https://source.unsplash.com/200x150/?vintage-muscle-car",
-      "https://source.unsplash.com/200x150/?american-classic-car",
-      "https://source.unsplash.com/200x150/?car-hood",
-      "https://source.unsplash.com/200x150/?retro-car"
-    ])
   }
 ];
 
 async function main() {
   console.log("Seeding database...");
+
+  const classicCars = await prisma.car.findMany({
+    where: { category: "Classico" },
+    select: { id: true },
+  });
+
+  if (classicCars.length > 0) {
+    await prisma.savedMatch.deleteMany({
+      where: { carId: { in: classicCars.map((car) => car.id) } },
+    });
+
+    await prisma.car.deleteMany({
+      where: { category: "Classico" },
+    });
+  }
 
   for (const car of cars) {
     await prisma.car.upsert({

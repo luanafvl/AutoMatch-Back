@@ -16,12 +16,12 @@ O **AutoMatch-Back** é o coração do ecossistema, responsável por gerenciar o
 ## 🔄 Fluxo de Dados (Orquestração)
 
 O backend possui uma lógica especial para recomendações:
-1. O **Frontend** envia as `UserPreferences`.
-2. O **Backend** busca todos os carros disponíveis no banco de dados.
+1. O **Frontend** envia as `UserPreferences` (perfil do Novo Match com 4 etapas).
+2. O **Backend** busca todos os carros disponíveis no banco de dados (com `Car.id` em hash SHA-256).
 3. O **Backend** envia o par `(User + Cars)` para o microsserviço de **Deep Learning** (Python).
-4. O **Motor de IA** retorna os scores de compatibilidade.
-5. O **Backend** ordena os resultados e persiste o melhor match para o usuário.
-6. O **Frontend** recebe a recomendação final processada.
+4. O **Motor de IA** retorna o score híbrido: modelo two-tower + preference boost (uso principal e ambiente).
+5. O **Backend** ordena os resultados, persiste o melhor match para o usuário e retorna a lista completa.
+6. O **Frontend** recebe a recomendação final processada com match percentage.
 
 ## 🚀 Como Iniciar
 
@@ -60,14 +60,26 @@ O backend possui uma lógica especial para recomendações:
 - `GET /api/cars`: Lista todos os veículos.
 - `GET /api/admin/cars`: Gestão administrativa do catálogo.
 
+## 📝 Dados do Novo Match
+
+O backend recebe e valida:
+- **Demographics:** tamanho do grupo (2, 3-4, 5+), uso principal, ambiente
+- **Financials:** orçamento máximo
+- **Technical:** categorias (Hatch, Sedan, SUV, Picape, Eletrico, Premium), faixa de ano, câmbio
+- **Priorities:** economia e potência (1-5)
+
 ## ⚙️ Variáveis de Ambiente
 
 Crie um arquivo `.env` na raiz:
 ```env
 DATABASE_URL="file:./dev.db"
 JWT_SECRET="sua_chave_secreta_aqui"
-AI_SERVICE_URL="http://localhost:8000/match"
+AI_SERVICE_URL="http://localhost:8000"
 ```
+
+## 🔐 Banco de Dados
+
+Todos os `Car.id` estão em formato hash SHA-256 para segurança e unicidade. O seed mantém esse padrão automaticamente.
 
 ---
 Desenvolvido como parte do ecossistema **AutoMatch**.

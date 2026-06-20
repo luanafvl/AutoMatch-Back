@@ -13,24 +13,21 @@ const createMatchSchema = z.object({
 
 const recommendationsSchema = z.object({
   demographics: z.object({
-    familySize: z.string(),
+    familySize: z.enum(["2", "3-4", "5+"] as const),
     primaryUse: z.string(),
     primaryEnvironment: z.string(),
   }),
   financials: z.object({
     maxBudget: z.number(),
-    costTolerance: z.string(),
   }),
   technicalPreferences: z.object({
-    categories: z.array(z.string()),
-    vehicleAge: z.string(),
+    categories: z.array(z.enum(["Hatch", "Sedan", "SUV", "Picape", "Eletrico", "Premium"] as const)),
+    vehicleAge: z.enum(["0km", "up_to_3_years", "up_to_10_years"] as const),
     transmission: z.string(),
   }),
   priorities: z.object({
     economy: z.number(),
     power: z.number(),
-    comfort: z.number(),
-    safety: z.number(),
   }),
 });
 
@@ -89,6 +86,7 @@ router.post("/recommendations", requireAuth, async (req: AuthRequest, res, next)
     const formattedCars = cars.map(car => ({
       id: car.id,
       nome: car.name,
+      ano: car.year,
       preco: car.price,
       categoria: car.category,
       specs: {
@@ -97,7 +95,7 @@ router.post("/recommendations", requireAuth, async (req: AuthRequest, res, next)
       }
     }));
 
-    const aiServiceUrl = process.env.AI_SERVICE_URL || "http://localhost:8000";
+    const aiServiceUrl = (process.env.AI_SERVICE_URL || "http://localhost:8000").replace(/\/+$/, "");
     const response = await fetch(`${aiServiceUrl}/match`, {
       method: "POST",
       headers: {

@@ -9,31 +9,27 @@ const prisma_js_1 = __importDefault(require("../lib/prisma.js"));
 const auth_js_1 = require("../middleware/auth.js");
 const error_js_1 = require("../middleware/error.js");
 const router = (0, express_1.Router)();
-console.log("Matches router loaded");
 const createMatchSchema = zod_1.z.object({
     carId: zod_1.z.string().min(1, "carId é obrigatório"),
     matchPercentage: zod_1.z.number().min(0).max(100),
 });
 const recommendationsSchema = zod_1.z.object({
     demographics: zod_1.z.object({
-        familySize: zod_1.z.string(),
+        familySize: zod_1.z.enum(["2", "3-4", "5+"]),
         primaryUse: zod_1.z.string(),
         primaryEnvironment: zod_1.z.string(),
     }),
     financials: zod_1.z.object({
         maxBudget: zod_1.z.number(),
-        costTolerance: zod_1.z.string(),
     }),
     technicalPreferences: zod_1.z.object({
-        categories: zod_1.z.array(zod_1.z.string()),
-        vehicleAge: zod_1.z.string(),
+        categories: zod_1.z.array(zod_1.z.enum(["Hatch", "Sedan", "SUV", "Picape", "Eletrico", "Premium"])),
+        vehicleAge: zod_1.z.enum(["0km", "up_to_3_years", "up_to_10_years"]),
         transmission: zod_1.z.string(),
     }),
     priorities: zod_1.z.object({
         economy: zod_1.z.number(),
         power: zod_1.z.number(),
-        comfort: zod_1.z.number(),
-        safety: zod_1.z.number(),
     }),
 });
 function formatMatch(row) {
@@ -79,9 +75,10 @@ router.get("/", auth_js_1.requireAuth, async (req, res, next) => {
         next(err);
     }
 });
-router.post("/recommendations", async (req, res, next) => {
+router.post("/recommendations", auth_js_1.requireAuth, async (req, res, next) => {
     try {
         const userProfile = recommendationsSchema.parse(req.body);
+        const userId = req.userId;
         const cars = await prisma_js_1.default.car.findMany();
         const formattedCars = cars.map(car => ({
             id: car.id,
@@ -93,7 +90,7 @@ router.post("/recommendations", async (req, res, next) => {
                 consumo: car.consumption
             }
         }));
-        const aiServiceUrl = process.env.AI_SERVICE_URL || "http://localhost:8000";
+        const aiServiceUrl = (process.env.AI_SERVICE_URL || "http://localhost:8000").replace(/\/+$/, "");
         const response = await fetch(`${aiServiceUrl}/match`, {
             method: "POST",
             headers: {
@@ -109,7 +106,40 @@ router.post("/recommendations", async (req, res, next) => {
             throw new error_js_1.AppError(500, `IA Service Error: ${errorData.detail || response.statusText}`);
         }
         const aiResults = await response.json();
-        res.json(aiResults);
+        const enrichedMatches = [];
+        // Salvar automaticamente apenas o melhor match no banco de dados para o usuário
+        if (aiResults.matches && aiResults.matches.length > 0) {
+            const topMatches = aiResults.matches.slice(0, 1); // Salva apenas o melhor resultado (maior compatibilidade)
+            for (const aiMatch of topMatches) {
+                try {
+                    const matchRecord = await prisma_js_1.default.savedMatch.upsert({
+                        where: {
+                            userId_carId: {
+                                userId: userId,
+                                carId: aiMatch.id
+                            }
+                        },
+                        update: {
+                            matchPercentage: Math.max(0, Math.round(aiMatch.match_score * 100))
+                        },
+                        create: {
+                            userId: userId,
+                            carId: aiMatch.id,
+                            matchPercentage: Math.max(0, Math.round(aiMatch.match_score * 100))
+                        },
+                        include: { car: true }
+                    });
+                    enrichedMatches.push(formatMatch(matchRecord));
+                }
+                catch (saveErr) {
+                    console.error(`Erro ao salvar match automático para o carro ${aiMatch.id}:`, saveErr);
+                }
+            }
+        }
+        res.json({
+            status: "success",
+            matches: enrichedMatches
+        });
     }
     catch (err) {
         if (err instanceof zod_1.z.ZodError) {
